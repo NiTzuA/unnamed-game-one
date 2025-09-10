@@ -683,8 +683,8 @@ MonoBehaviour:
   controller: {fileID: 601198870}
   groundCheck: {fileID: 1611315599}
   speed: 6
-  gravity: -9.8
-  groundDistance: 0.4
+  gravity: -16
+  groundDistance: 0.2
   jumpHeight: 2
   groundMask:
     serializedVersion: 2
