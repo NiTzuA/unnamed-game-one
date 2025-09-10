@@ -682,10 +682,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MovementController
   controller: {fileID: 601198870}
   groundCheck: {fileID: 1611315599}
+  playerCam: {fileID: 1341841305}
   speed: 6
   gravity: -16
   groundDistance: 0.2
   jumpHeight: 2
+  extraJumpHeight: 1
+  extraJumpsCount: 1
+  crouchHeight: 1
+  currentJumps: 0
   groundMask:
     serializedVersion: 2
     m_Bits: 8
