@@ -12,7 +12,7 @@ PlayerSettings:
   targetDevice: 2
   useOnDemandResources: 0
   accelerometerFrequency: 60
-  companyName: DefaultCompany
+  companyName: Apeiron
   productName: Unnamed Unity Game 1
   defaultCursor: {fileID: 0}
   cursorHotspot: {x: 0, y: 0}
@@ -918,7 +918,7 @@ PlayerSettings:
   qnxGraphicConfPath: 
   apiCompatibilityLevel: 6
   captureStartupLogs: {}
-  activeInputHandler: 1
+  activeInputHandler: 2
   windowsGamepadBackendHint: 0
   cloudProjectId: 0c7afdd2-3af3-4d57-8e4c-937f25dbf7d1
   framebufferDepthMemorylessMode: 0
