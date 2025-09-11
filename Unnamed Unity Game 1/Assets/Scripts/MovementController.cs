@@ -9,6 +9,7 @@ public class MovementController : MonoBehaviour
     public Camera playerFov;
 
     public float walkFov = 50f;
+    public float crouchSpeed = 3f;
     public float baseSpeed = 6f;
     public float gravity = -16.0f;
     public float groundDistance = 0.2f;
@@ -23,12 +24,15 @@ public class MovementController : MonoBehaviour
     private float walkSpeed = 0;
     private float currentJumps = 0;
     private float currentSpeed = 0;
+    private float z;
+    private float x;
 
     public LayerMask groundMask;
 
     Vector3 velocity;
 
     bool isCrouching;
+    bool isSprinting;
     bool isGrounded;
     float standHeight;
 
@@ -36,57 +40,80 @@ public class MovementController : MonoBehaviour
     {
         walkSpeed = baseSpeed;
         playerFov.fieldOfView = walkFov;
+        standHeight = playerCam.localPosition.y;
     }
 
     void Update()
     {
 
-        currentSpeed = Mathf.Lerp(currentSpeed, baseSpeed, Time.deltaTime * 5f);
+        //sprinting while in crouch should not be allowed
 
-        standHeight = playerCam.transform.position.y;
+        x = Input.GetAxis("Horizontal");
+        z = Input.GetAxis("Vertical");
+
+        if (x == 0f && z == 0)
+        {
+            currentSpeed = 0;
+        }
+
         isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
 
         if (isGrounded && velocity.y < 0)
         {
+            currentSpeed = Mathf.Lerp(currentSpeed, baseSpeed, Time.deltaTime * 3f);
             velocity.y = -2f;
             currentJumps = extraJumpsCount;
+        } else
+        {
+            currentSpeed = Mathf.Lerp(currentSpeed, baseSpeed, Time.deltaTime * 1f); 
         }
-        
-        float x = Input.GetAxis("Horizontal");
-        float z = Input.GetAxis("Vertical");
-
-        /*
-        if (Input.GetKeyDown(KeyCode.LeftControl)) isCrouching = true;
-        if (Input.GetKeyUp(KeyCode.LeftControl)) isCrouching = false;
 
         float targetPosition = isCrouching ? standHeight - crouchHeight : standHeight;
-        Vector3 newPos = playerCam.transform.position;
+        Vector3 newPos = playerCam.localPosition;
         newPos.y = targetPosition;
-        playerCam.position = newPos;
+        playerCam.localPosition = newPos;
 
-        I'M TRYING TO MAKE A CROUCH SYSTEM THAT DOESNT FUCK WITH THE JUMP CAM I'LL DO THIS TOMORROW
-        */
-
-        if (Input.GetKey(KeyCode.LeftShift) && Input.GetAxisRaw("Vertical") != 0)
+        if (Input.GetKey(KeyCode.LeftShift) && Input.GetAxisRaw("Vertical") > 0)
         {
+            isSprinting = true;
             baseSpeed = sprintSpeed;
             playerFov.fieldOfView = Mathf.Lerp(playerFov.fieldOfView, walkFov + (walkFov * sprintZoom), 15f * Time.deltaTime);
         }
-        else if (isGrounded)
+        else if (isGrounded && !isCrouching)
         {
-            baseSpeed = walkSpeed;
+            isSprinting = false;
+            baseSpeed = walkSpeed; // idk if this line is needed
             playerFov.fieldOfView = Mathf.Lerp(playerFov.fieldOfView, walkFov, 15f * Time.deltaTime);
+        }
+
+        if (Input.GetKey(KeyCode.LeftControl) && isGrounded) 
+        {
+            if (!isCrouching && isSprinting)
+            {   
+                currentSpeed = baseSpeed * boostMultiplier ;
+            }
+
+            baseSpeed = crouchSpeed;
+            isCrouching = true;
+        }
+        if (Input.GetKeyUp(KeyCode.LeftControl))
+        {
+            baseSpeed = walkSpeed; // idk if this line is needed
+            isCrouching = false;
         }
 
         if (Input.GetButtonDown("Jump") && isGrounded)
         {
+
             velocity.y += Mathf.Sqrt(jumpHeight * -2f * gravity);
+            currentSpeed *= 1.25f;
         }
         else if (Input.GetButtonDown("Jump") && currentJumps > 0)
         {
             currentJumps--;
             velocity.y = Mathf.Sqrt(extraJumpHeight * -2f * gravity);
-            currentSpeed = baseSpeed * boostMultiplier;
+            currentSpeed = baseSpeed * (boostMultiplier * 0.75f);
+
         }
 
         Vector3 move = transform.right * x + transform.forward * z;
