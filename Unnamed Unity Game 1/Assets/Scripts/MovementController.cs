@@ -17,12 +17,15 @@ public class MovementController : MonoBehaviour
     public float airBoostForce;
     public float airJumpCount;
 
+
     [Header("Ground Check")]
     public float playerHeight;
     public LayerMask groundMask;
+
+    [Header("Camera Controls")]
+    public Camera playerCam;
+    public float playerFov;
     
-
-
 
     public Transform orientation;
 
@@ -31,9 +34,11 @@ public class MovementController : MonoBehaviour
     private bool isGrounded;
     private bool isCrouching = false;
     private bool isSliding = false;
+    private bool isSprinting = false;
     private float currentAirJumpCount;
     private float moveSpeed;
     private float elapsedTimeSinceAirJump; // i need sleep
+    private float currentFov;
 
     Vector3 moveDirection;
 
@@ -44,6 +49,8 @@ public class MovementController : MonoBehaviour
         rb = GetComponent<Rigidbody>();
         rb.freezeRotation = true;
         currentAirJumpCount = airJumpCount;
+        currentFov = playerFov;
+        ChangeFov(0, 0, false);
     }
 
     void Update()
@@ -52,6 +59,12 @@ public class MovementController : MonoBehaviour
         isGrounded = Physics.Raycast(transform.position, Vector3.down, playerHeight * 0.5f + 0.2f, groundMask); // define the magic numbers 0.5f and 0.2f later
         if (isGrounded)
         {
+            if (!isSprinting)
+            {
+                currentFov = 0f;
+                ChangeFov(currentFov, 0, false);
+            }
+
             if (Time.time - elapsedTimeSinceAirJump > jumpCooldown)
             {
                 RefreshJumps();
@@ -104,6 +117,9 @@ public class MovementController : MonoBehaviour
         // Sprinting
         if (isGrounded && Input.GetKey(KeyCode.LeftShift))
         {
+            isSprinting = true;
+            currentFov = 0.25f;
+            ChangeFov(currentFov, 0, false);
             if (isSliding)
             {
                 moveSpeed = Mathf.Lerp(moveSpeed, sprintSpeed, Time.deltaTime * 3);
@@ -114,10 +130,16 @@ public class MovementController : MonoBehaviour
             }
             
         }
+        else if (Input.GetKeyUp(KeyCode.LeftShift)) 
+        {
+            isSprinting = false;
+        }
 
         // Walking
-        else if (isGrounded && (horizontalInput != 0 || verticalInput != 0))
+        if (isGrounded && (horizontalInput != 0 || verticalInput != 0) && !isSprinting)
         {
+            currentFov = 0f;
+            ChangeFov(currentFov, 0, false);
             if (isSliding)
             {
                 moveSpeed = Mathf.Lerp(moveSpeed, walkSpeed, Time.deltaTime * 3);
@@ -174,7 +196,7 @@ public class MovementController : MonoBehaviour
     }
 
     private void Jump()
-    {   
+    {
         rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
         rb.AddForce(transform.up * jumpForce, ForceMode.Impulse);
     }
@@ -184,6 +206,8 @@ public class MovementController : MonoBehaviour
         elapsedTimeSinceAirJump = Time.time;
         rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
         rb.AddForce(transform.up * jumpForce / 2 + orientation.forward * rb.linearVelocity.magnitude * airBoostForce, ForceMode.Impulse);
+        ChangeFov(0.5f, 0f, false);
+        // fix issue with this. Lerping does NOT work if you don't hold the key (aka doesn't work with GetKeyDown vs GetKey!
     }
 
     private void Slide()
@@ -203,5 +227,19 @@ public class MovementController : MonoBehaviour
     {
         if (isGrounded)
         currentAirJumpCount = airJumpCount;
+    }
+
+    private void ChangeFov(float fovDifference, float delay, bool pulse)
+    {
+        if (!pulse)
+        {
+            playerCam.fieldOfView = Mathf.Lerp(
+                playerCam.fieldOfView, playerFov + (playerFov * fovDifference), 15f * Time.deltaTime);
+        }
+        else
+        {
+
+        }
+        // we are gonna have to rework this function lmao
     }
 }
