@@ -24,6 +24,7 @@ public class MovementController : MonoBehaviour
 
     [Header("Camera Controls")]
     public Camera playerCam;
+    public Transform playerObject;
     public float playerFov;
     
 
@@ -31,10 +32,12 @@ public class MovementController : MonoBehaviour
 
     private float horizontalInput; // formerly x-axis
     private float verticalInput;   // formerly z-axis
+    private bool crouchPos = false;
     private bool isGrounded;
     private bool isCrouching = false;
     private bool isSliding = false;
     private bool isSprinting = false;
+    private bool isAirJumped = true;
     private float currentAirJumpCount;
     private float moveSpeed;
     private float elapsedTimeSinceAirJump; // i need sleep
@@ -59,6 +62,8 @@ public class MovementController : MonoBehaviour
         isGrounded = Physics.Raycast(transform.position, Vector3.down, playerHeight * 0.5f + 0.2f, groundMask); // define the magic numbers 0.5f and 0.2f later
         if (isGrounded)
         {
+            isAirJumped = false;
+
             if (!isSprinting)
             {
                 currentFov = 0f;
@@ -87,6 +92,7 @@ public class MovementController : MonoBehaviour
 
     private void FixedUpdate()
     {
+        AdjustCamera();
         MovePlayer();
     }
 
@@ -98,6 +104,7 @@ public class MovementController : MonoBehaviour
         // Crouching
         if (Input.GetKey(KeyCode.LeftControl) && isGrounded)
         {
+            isCrouching = true;
             if (rb.linearVelocity.magnitude > walkSpeed + 1f)
             {
                 Slide();
@@ -106,11 +113,15 @@ public class MovementController : MonoBehaviour
             {
                 moveSpeed = crouchSpeed;
             }
-   
-        }
 
+            // ahhh fuck me, there was a better way to do this... T_T
+
+            // As soon as the player slides, reduce linearDamping to 0 first, then do a short impulse, then start a timer OR check if the player is on a slope using an angled raycast that is checking if the ground is greater than the set sliding angle. If the player timer is out, or the angle is not steep enough, return the damping to the ground drag again. idk if this works
+
+        }
         else
         {
+            isCrouching = false;
             isSliding = false;
         }
 
@@ -203,16 +214,21 @@ public class MovementController : MonoBehaviour
 
     private void AirJump()
     {
+        isAirJumped = true;
         elapsedTimeSinceAirJump = Time.time;
         rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
         rb.AddForce(transform.up * jumpForce / 2 + orientation.forward * rb.linearVelocity.magnitude * airBoostForce, ForceMode.Impulse);
-        ChangeFov(0.5f, 0f, false);
-        // fix issue with this. Lerping does NOT work if you don't hold the key (aka doesn't work with GetKeyDown vs GetKey!
     }
 
     private void Slide()
     {
-        isSliding = true;
+        if (!isSliding)
+        {
+            isSliding = true;
+            rb.AddForce(orientation.forward * airBoostForce, ForceMode.Impulse);
+            
+        } 
+
         // add slide duration
         // add small boost
         // add slope detection
@@ -241,5 +257,38 @@ public class MovementController : MonoBehaviour
 
         }
         // we are gonna have to rework this function lmao
+    }
+
+    private void AdjustCamera()
+    {
+        if (isCrouching)
+        {
+            if (!crouchPos)
+            {
+                rb.AddForce(Vector3.down * 5f, ForceMode.Impulse);
+                crouchPos = true;
+            }
+            
+            float currentPlayerHeight = Mathf.Lerp(playerObject.transform.localScale.y,
+            (playerHeight / 4), Time.deltaTime * 10f);
+            Vector3 currentScale = playerObject.transform.localScale;
+            currentScale.y = currentPlayerHeight;
+            playerObject.transform.localScale = currentScale;
+        } 
+        else
+        {
+            crouchPos = false;
+            float currentPlayerHeight = Mathf.Lerp(playerObject.transform.localScale.y,
+            (playerHeight / 2), Time.deltaTime * 10f);
+            Vector3 currentScale = playerObject.transform.localScale;
+            currentScale.y = currentPlayerHeight;
+            playerObject.transform.localScale = currentScale;
+        }
+
+        if (isAirJumped)
+        {
+
+            ChangeFov(0.6f, 0, false);
+        }
     }
 }
