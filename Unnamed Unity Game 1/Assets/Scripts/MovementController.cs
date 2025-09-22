@@ -16,6 +16,8 @@ public class MovementController : MonoBehaviour
     public float airMultiplier;
     public float airBoostForce;
     public float airJumpCount;
+    public float speedLimit;
+    public float slideDuration;
 
 
     [Header("Ground Check")]
@@ -41,6 +43,7 @@ public class MovementController : MonoBehaviour
     private float currentAirJumpCount;
     private float moveSpeed;
     private float elapsedTimeSinceAirJump; // i need sleep
+    private float elapsedTimeSinceSlide;
     private float currentFov;
 
     Vector3 moveDirection;
@@ -64,7 +67,7 @@ public class MovementController : MonoBehaviour
         {
             isAirJumped = false;
 
-            if (!isSprinting)
+            if (!isSprinting && !isSliding)
             {
                 currentFov = 0f;
                 ChangeFov(currentFov, 0, false);
@@ -92,6 +95,10 @@ public class MovementController : MonoBehaviour
 
     private void FixedUpdate()
     {
+        if (moveSpeed > speedLimit)
+        {
+            moveSpeed = speedLimit;
+        }
         AdjustCamera();
         MovePlayer();
     }
@@ -114,9 +121,7 @@ public class MovementController : MonoBehaviour
                 moveSpeed = crouchSpeed;
             }
 
-            // ahhh fuck me, there was a better way to do this... T_T
-
-            // As soon as the player slides, reduce linearDamping to 0 first, then do a short impulse, then start a timer OR check if the player is on a slope using an angled raycast that is checking if the ground is greater than the set sliding angle. If the player timer is out, or the angle is not steep enough, return the damping to the ground drag again. idk if this works
+            // As soon as the player slides, reduce linearDamping to 0 first, then do a short impulse (or a force.move, test which feels better), then start a timer OR check if the player is on a slope using an angled raycast that is checking if the ground is greater than the set sliding angle. If the player timer is out, or the angle is not steep enough, return the damping to the ground drag again. idk if this works
 
         }
         else
@@ -126,7 +131,7 @@ public class MovementController : MonoBehaviour
         }
 
         // Sprinting
-        if (isGrounded && Input.GetKey(KeyCode.LeftShift))
+        if (isGrounded && Input.GetKey(KeyCode.LeftShift) && !isSliding)
         {
             isSprinting = true;
             currentFov = 0.25f;
@@ -224,19 +229,18 @@ public class MovementController : MonoBehaviour
     {
         if (!isSliding)
         {
-            isSliding = true;
-            rb.AddForce(orientation.forward * airBoostForce, ForceMode.Impulse);
-            
-        } 
+            elapsedTimeSinceSlide = Time.time;
+            moveSpeed = rb.linearVelocity.magnitude * slideForce;  
+        }
 
-        // add slide duration
-        // add small boost
-        // add slope detection
-        // increase max speed at slope
+        isSliding = true;
 
-        //rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
-        //rb.AddForce(transform.up * -jumpForce + orientation.forward * slideForce, ForceMode.Impulse);
-
+        if (Time.time - elapsedTimeSinceSlide < slideDuration)
+        {
+            rb.AddForce(orientation.forward * slideForce, ForceMode.Force);  
+        }
+        
+        // nice! Now just implement disabling walking forward when sliding!
     }
 
     private void RefreshJumps()
@@ -252,11 +256,6 @@ public class MovementController : MonoBehaviour
             playerCam.fieldOfView = Mathf.Lerp(
                 playerCam.fieldOfView, playerFov + (playerFov * fovDifference), 15f * Time.deltaTime);
         }
-        else
-        {
-
-        }
-        // we are gonna have to rework this function lmao
     }
 
     private void AdjustCamera()
@@ -287,7 +286,6 @@ public class MovementController : MonoBehaviour
 
         if (isAirJumped)
         {
-
             ChangeFov(0.6f, 0, false);
         }
     }

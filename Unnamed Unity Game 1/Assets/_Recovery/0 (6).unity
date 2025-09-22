@@ -633,13 +633,12 @@ MonoBehaviour:
   sprintSpeed: 12
   crouchSpeed: 3
   jumpForce: 6
-  slideForce: 2
+  slideForce: 20
   jumpCooldown: 1
   airMultiplier: 0.25
   airBoostForce: 2
   airJumpCount: 1
   speedLimit: 100
-  slideDuration: 0.5
   playerHeight: 2
   groundMask:
     serializedVersion: 2
