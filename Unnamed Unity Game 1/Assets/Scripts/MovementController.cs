@@ -42,6 +42,7 @@ public class MovementController : MonoBehaviour
     private bool isSprinting = false;
     private bool isAirJumped = true;
     private bool canMoveVertical = true;
+    private bool canMoveHorizontal = true;
     private bool hasSlid = false;
     private bool justLanded = false;
     private float currentAirJumpCount;
@@ -51,6 +52,7 @@ public class MovementController : MonoBehaviour
     private float elapsedTimeSinceLanding;
     private float currentFov;
     private float horizontalSpeed;
+    private float lastSpeed;
 
     Vector3 moveDirection;
 
@@ -58,6 +60,7 @@ public class MovementController : MonoBehaviour
 
     private void Start()
     {
+        lastSpeed = 0;
         rb = GetComponent<Rigidbody>();
         rb.freezeRotation = true;
         currentAirJumpCount = airJumpCount;
@@ -68,9 +71,13 @@ public class MovementController : MonoBehaviour
     void Update()
     {
         Vector3 horizontalVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
-        horizontalSpeed = horizontalVelocity.magnitude;
+        float currentSpeed = horizontalVelocity.magnitude;
 
-        
+        if (currentSpeed < lastSpeed - 0.01f)
+        {
+            moveSpeed = currentSpeed;
+        }
+
         isGrounded = Physics.Raycast(transform.position, Vector3.down, playerHeight * 0.5f + 0.2f, groundMask);
         if (isGrounded)
         {
@@ -85,8 +92,13 @@ public class MovementController : MonoBehaviour
                 justLanded = false;
             }
 
+            if (isAirJumped)
+            {
+                elapsedTimeSinceAirJump = Time.time;
+                isAirJumped = false;
+            }
+
             isAirborne = false;
-            isAirJumped = false;
 
             if (!isSprinting && !isSliding)
             {
@@ -106,12 +118,13 @@ public class MovementController : MonoBehaviour
             }
             else
             {
-                rb.linearDamping = groundDrag;
+                rb.linearDamping = Mathf.Lerp(rb.linearDamping, groundDrag, Time.deltaTime * 2f);
             }
 
             if (rb.linearVelocity.magnitude - 1 < crouchSpeed && hasSlid)
             {
                 canMoveVertical = true;
+                canMoveHorizontal = true;
                 isCrouching = true;
             }
 
@@ -127,15 +140,14 @@ public class MovementController : MonoBehaviour
         }
         MyInput();
 
+        lastSpeed = currentSpeed;
     }
-
-    // ADD DECELERATION
 
     private void FixedUpdate()
     {
         if (moveSpeed > speedLimit)
         {
-            moveSpeed = speedLimit;
+            moveSpeed = Mathf.Lerp(moveSpeed, speedLimit, Time.deltaTime * 2f);
         }
         AdjustCamera();
         MovePlayer();
@@ -152,7 +164,14 @@ public class MovementController : MonoBehaviour
             verticalInput = 0;
         }
 
-        horizontalInput = Input.GetAxisRaw("Horizontal");
+        if (canMoveHorizontal)
+        {
+            horizontalInput = Input.GetAxisRaw("Horizontal");
+        }
+        else
+        {
+            horizontalInput = 0;
+        }
 
 
         // Crouching
@@ -174,6 +193,7 @@ public class MovementController : MonoBehaviour
         else
         {
             canMoveVertical = true;
+            canMoveHorizontal = true;
             isCrouching = false;
             isSliding = false;
         }
@@ -271,7 +291,7 @@ public class MovementController : MonoBehaviour
     private void AirJump()
     {
         isAirJumped = true;
-        elapsedTimeSinceAirJump = Time.time;
+        
         rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
         rb.AddForce(transform.up * jumpForce / 2 + orientation.forward * rb.linearVelocity.magnitude * airBoostForce, ForceMode.Impulse);
     }
@@ -286,6 +306,7 @@ public class MovementController : MonoBehaviour
                 moveSpeed = rb.linearVelocity.magnitude * slideForce;
             }
             canMoveVertical = false;
+            canMoveHorizontal = false;
             hasSlid = true;
         }
 
