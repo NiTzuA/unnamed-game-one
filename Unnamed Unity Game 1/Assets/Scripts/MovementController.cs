@@ -5,7 +5,7 @@ public class MovementController : MonoBehaviour
 {
 
     [Header("Movement")]
-    
+
     public float groundDrag;
     public float walkSpeed;
     public float sprintSpeed;
@@ -28,7 +28,7 @@ public class MovementController : MonoBehaviour
     public Camera playerCam;
     public Transform playerObject;
     public float playerFov;
-    
+
 
     public Transform orientation;
 
@@ -36,15 +36,21 @@ public class MovementController : MonoBehaviour
     private float verticalInput;   // formerly z-axis
     private bool crouchPos = false;
     private bool isGrounded;
+    private bool isAirborne = false;
     private bool isCrouching = false;
     private bool isSliding = false;
     private bool isSprinting = false;
     private bool isAirJumped = true;
+    private bool canMoveVertical = true;
+    private bool hasSlid = false;
+    private bool justLanded = false;
     private float currentAirJumpCount;
     private float moveSpeed;
     private float elapsedTimeSinceAirJump; // i need sleep
     private float elapsedTimeSinceSlide;
+    private float elapsedTimeSinceLanding;
     private float currentFov;
+    private float horizontalSpeed;
 
     Vector3 moveDirection;
 
@@ -61,10 +67,25 @@ public class MovementController : MonoBehaviour
 
     void Update()
     {
-        MyInput();
-        isGrounded = Physics.Raycast(transform.position, Vector3.down, playerHeight * 0.5f + 0.2f, groundMask); // define the magic numbers 0.5f and 0.2f later
+        Vector3 horizontalVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+        horizontalSpeed = horizontalVelocity.magnitude;
+
+        
+        isGrounded = Physics.Raycast(transform.position, Vector3.down, playerHeight * 0.5f + 0.2f, groundMask);
         if (isGrounded)
         {
+            if (isAirborne)
+            {
+                justLanded = true;
+                elapsedTimeSinceLanding = Time.time;
+            }
+
+            if (Time.time - elapsedTimeSinceLanding > 0.1f)
+            {
+                justLanded = false;
+            }
+
+            isAirborne = false;
             isAirJumped = false;
 
             if (!isSprinting && !isSliding)
@@ -82,16 +103,33 @@ public class MovementController : MonoBehaviour
             if (isSliding)
             {
                 rb.linearDamping = 0f;
-            } else
+            }
+            else
             {
                 rb.linearDamping = groundDrag;
             }
-        } 
+
+            if (rb.linearVelocity.magnitude - 1 < crouchSpeed && hasSlid)
+            {
+                canMoveVertical = true;
+                isCrouching = true;
+            }
+
+            if (rb.linearVelocity.magnitude - 1 < sprintSpeed && !isCrouching)
+            {
+                hasSlid = false;
+            }
+        }
         else
         {
+            isAirborne = true;
             rb.linearDamping = 0;
         }
+        MyInput();
+
     }
+
+    // ADD DECELERATION
 
     private void FixedUpdate()
     {
@@ -105,8 +143,17 @@ public class MovementController : MonoBehaviour
 
     private void MyInput()
     {
+        if (canMoveVertical)
+        {
+            verticalInput = Input.GetAxisRaw("Vertical");
+        }
+        else
+        {
+            verticalInput = 0;
+        }
+
         horizontalInput = Input.GetAxisRaw("Horizontal");
-        verticalInput = Input.GetAxisRaw("Vertical");
+
 
         // Crouching
         if (Input.GetKey(KeyCode.LeftControl) && isGrounded)
@@ -115,7 +162,7 @@ public class MovementController : MonoBehaviour
             if (rb.linearVelocity.magnitude > walkSpeed + 1f)
             {
                 Slide();
-            } 
+            }
             else
             {
                 moveSpeed = crouchSpeed;
@@ -126,9 +173,12 @@ public class MovementController : MonoBehaviour
         }
         else
         {
+            canMoveVertical = true;
             isCrouching = false;
             isSliding = false;
         }
+
+
 
         // Sprinting
         if (isGrounded && Input.GetKey(KeyCode.LeftShift) && !isSliding)
@@ -142,11 +192,11 @@ public class MovementController : MonoBehaviour
             }
             else
             {
-                moveSpeed = sprintSpeed;
+                 moveSpeed = sprintSpeed;
             }
-            
+
         }
-        else if (Input.GetKeyUp(KeyCode.LeftShift)) 
+        else if (Input.GetKeyUp(KeyCode.LeftShift))
         {
             isSprinting = false;
         }
@@ -164,7 +214,7 @@ public class MovementController : MonoBehaviour
             {
                 moveSpeed = walkSpeed;
             }
-            
+
         }
 
         // Jump
@@ -215,6 +265,7 @@ public class MovementController : MonoBehaviour
     {
         rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
         rb.AddForce(transform.up * jumpForce, ForceMode.Impulse);
+        
     }
 
     private void AirJump()
@@ -230,23 +281,26 @@ public class MovementController : MonoBehaviour
         if (!isSliding)
         {
             elapsedTimeSinceSlide = Time.time;
-            moveSpeed = rb.linearVelocity.magnitude * slideForce;  
+            if (!isAirborne && !hasSlid)
+            {
+                moveSpeed = rb.linearVelocity.magnitude * slideForce;
+            }
+            canMoveVertical = false;
+            hasSlid = true;
         }
 
         isSliding = true;
 
-        if (Time.time - elapsedTimeSinceSlide < slideDuration)
+        if (Time.time - elapsedTimeSinceSlide < slideDuration && !justLanded)
         {
-            rb.AddForce(orientation.forward * slideForce, ForceMode.Force);  
+            rb.AddForce(orientation.forward * slideForce * 20, ForceMode.Force);
         }
-        
-        // nice! Now just implement disabling walking forward when sliding!
     }
 
     private void RefreshJumps()
     {
         if (isGrounded)
-        currentAirJumpCount = airJumpCount;
+            currentAirJumpCount = airJumpCount;
     }
 
     private void ChangeFov(float fovDifference, float delay, bool pulse)
@@ -267,13 +321,13 @@ public class MovementController : MonoBehaviour
                 rb.AddForce(Vector3.down * 5f, ForceMode.Impulse);
                 crouchPos = true;
             }
-            
+
             float currentPlayerHeight = Mathf.Lerp(playerObject.transform.localScale.y,
             (playerHeight / 4), Time.deltaTime * 10f);
             Vector3 currentScale = playerObject.transform.localScale;
             currentScale.y = currentPlayerHeight;
             playerObject.transform.localScale = currentScale;
-        } 
+        }
         else
         {
             crouchPos = false;

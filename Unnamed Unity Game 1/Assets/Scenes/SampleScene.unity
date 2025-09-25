@@ -638,8 +638,8 @@ MonoBehaviour:
   airMultiplier: 0.25
   airBoostForce: 2
   airJumpCount: 1
-  speedLimit: 100
-  slideDuration: 0.5
+  speedLimit: 42
+  slideDuration: 0.1
   playerHeight: 2
   groundMask:
     serializedVersion: 2
